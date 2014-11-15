@@ -90,5 +90,5 @@ class FakeMbox (object):
 if __name__ == '__main__':
     src_mbox = sys.argv[1]
     dest_mbox = sys.argv[2]
-    mbx = FakeMbox('ryan.mbox', 'ryan_new.box')
+    mbx = FakeMbox(src_mbox, dest_mbox)
     mbx.create()
