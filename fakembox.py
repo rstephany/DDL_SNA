@@ -5,7 +5,7 @@
     __purpose__ = SNA Workshop
 '''
 
-
+import re
 import sys
 import mailbox
 from faker import Faker
@@ -18,9 +18,9 @@ from loremipsum import get_sentences, generate_paragraph
 class FakeMbox (object):
     ''' 
         This is a class that generates a fake mbox 
-        email addresses are replaced with fake addresses
-        subject is replace with a lorem ipsum sentence
-        boxy is replace with a lorem ipsum paragraph
+        Email addresses are replaced with fake addresses but still retaining the same domain
+        Subject is replace with a fake company
+        Body is replace with a lorem ipsum paragraph
     '''
     
     def __init__ (self, mbox_file, nmbox_file):
@@ -30,7 +30,8 @@ class FakeMbox (object):
         self.src_mbox           = mailbox.mbox(mbox_file)
         self.dest_mbox          = mailbox.mbox(nmbox_file, create=True)
         self.faker              = Faker()
-        self.name_emails        = {}
+        self.emails_name        = {}
+        self.re_email = re.compile(r'[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
 
 
     def anonomize (self, pii):
@@ -38,15 +39,21 @@ class FakeMbox (object):
         Creates fake names and name_emails
         Checks to see if the name has already been given a fake name
         '''
-        name = pii[:pii.find('<')].strip()
+        emails = self.re_email.findall(pii)
+        email_list = []
 
-        if name in self.name_emails.keys():
-            fakename, email = self.name_emails[name]
-        else:
-            fakename = self.faker.name()
-            email    = self.faker.email()
-            self.name_emails[name] = (fakename,email)
-        return '%s <%s>' % (fakename,email)
+        for email in emails:
+            domain = email.split('@')[-1].strip()
+
+            if email in self.emails_name.keys():
+                fakeemail, fakename = self.emails_name[email]
+            else:
+                fakename = self.faker.name()
+                fakeemail = '%s@%s' % (self.faker.username(), domain)
+                self.emails_name[email] = (fakeemail, fakename)
+
+            email_list.append('%s <%s>' % (fakename,fakeemail))
+        return ', '.join(email_list)
 
 
     def extract_time (self, header):
@@ -72,11 +79,13 @@ class FakeMbox (object):
                 fmsg = mailbox.mboxMessage()
                 fmsg.set_from('MAILER-DAEMON',time_=self.extract_time(msg.get_from()))
                 for k,v in msg.items():
-                    if k in ('To', 'From'):
+                    if k in ('To', 'From', 'Cc'):
                         fmsg[k] = self.anonomize(v)
                     elif k =='Subject':
                         fmsg[k] = self.faker.company()
-                    fmsg.set_payload(generate_paragraph()[-1])
+                    elif k == 'Date':
+                        fmsg[k] = v
+                fmsg.set_payload(generate_paragraph()[-1])
                 self.dest_mbox.add(fmsg)
                 self.dest_mbox.flush()
         finally:
@@ -88,7 +97,9 @@ class FakeMbox (object):
 
 
 if __name__ == '__main__':
+
     src_mbox = sys.argv[1]
     dest_mbox = sys.argv[2]
+
     mbx = FakeMbox(src_mbox, dest_mbox)
     mbx.create()
