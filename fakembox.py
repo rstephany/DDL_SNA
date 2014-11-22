@@ -17,7 +17,8 @@ from loremipsum import get_sentences, generate_paragraph
 
 class FakeMbox (object):
     ''' 
-        This is a class that generates a fake mbox 
+        This is a class that generates a very simple fake mbox
+        Most of the email metadata information is not kept
         Email addresses are replaced with fake addresses but still retaining the same domain
         Subject is replace with a fake company
         Body is replace with a lorem ipsum paragraph
@@ -31,6 +32,7 @@ class FakeMbox (object):
         self.dest_mbox          = mailbox.mbox(nmbox_file, create=True)
         self.faker              = Faker()
         self.emails_name        = {}
+        self.domains            = {}
         self.re_email = re.compile(r'[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
 
 
@@ -44,6 +46,10 @@ class FakeMbox (object):
 
         for email in emails:
             domain = email.split('@')[-1].strip()
+            if domain in self.domains.keys():
+                domain = self.domains[domain]
+            else:
+                domain = self.domains[domain] = '%s.com' % self.faker.company().replace(' ','_')
 
             if email in self.emails_name.keys():
                 fakeemail, fakename = self.emails_name[email]
